@@ -153,3 +153,61 @@ au début du niveau et par les écritures VRAM 9C21/9C2A/9C2F/9C09.
 - Le sprite fait 16×16 pixels sur un écran 320×200 : il reste petit. Le fond
   tramé noir/blanc le rend peu visible. Amélioration possible : agrandissement
   2× ou contour noir.
+
+
+## Portage — fenêtre de banques et tour complet (étape du fichier de reprise)
+
+### Décisions validées (utilisateur)
+- Cadence : 6 pas de logique / 5 trames CPC (motif 2,1,1,1,1).
+- Contrôles : flèches + Z (A) + X (B), Enter = Start, Shift = Select ; manette 2 boutons (1=A, 2=B).
+- Défilement : 8 px à 50 Hz par le CRTC (R12/R13), réglage à mesurer puis ajuster.
+
+### Outils ajoutés
+- 	ools/gb_banks.py : entrées de banque (statique + dynamique PyBoy), fermeture par
+  banque, lectures de données. Selftest inclus. C'est lui qui a montré que les motifs
+  ld a,N ; call SetBank ne suffisent pas : les appels de banque passent aussi par
+  CallBank (05CF, hl=constante) et par les pointeurs de callbacks (0887→0620).
+- uild/l1/win_entries.json (produit par gb2z80) : les points de dispatch de fenêtre,
+  seuls lieux où poser les tramplins.
+
+### Mécanisme de banque retenu (banc d'essai)
+- La fenêtre - montre la banque courante : octets ROM bruts + tramplins
+  jp BNN_xxxx aux seuls points de dispatch (les étiquettes internes n'en reçoivent
+  pas : les poser partout écrasait les octets de script lus dans la fenêtre — corrigé).
+- select_bank = ld (),a ; out (),a ; l1_cmp échange l'image par le tracer.
+- ar_dispatch (patch de ) : hl≥ → jp (hl) (tramplin, hl inchangé) ;
+  hl< → table far0_pairs (20 cibles mesurées) puis saut. Une cible inconnue
+  écrit son adresse en C200 et boucle : signalée tout de suite par la comparaison.
+- Banques traduites : 01, 02, 07, 08, 0B, 0E, 0F, 1A, 1E, 1F (BANK_ENTRIES dans
+  _cfg_l1.py, mesurées par gb_banks sur level1 + level1_actions).
+
+### Vérification (trace level1_loop, 600 tours)
+- Trames sans événement d\'entité : **0 octet d\'écart** (mesuré : trames 1-3, 10-12…),
+  le tour complet tournant (m1/m2/m3 appellent G_0496/G_086B/G_04AE, plus des stubs).
+- Trames d\'événement (4-5, 13-14) et leurs suites (6-9, 15-18) : écarts, 12 trames
+  sur les 20 premières.
+
+### Cause racine des écarts d\'événement (identifiée, pas encore résolue)
+Le banc d\'essai réutilise les adresses ROM (-) pour le code traduit : les
+**données ROM lues par pointeur calculé** sont servies avec les octets du code traduit.
+Trois lectures fautives prouvées pas-à-pas (outil de pas-à-pas par sim.trace(pc,0,1,0)) :
+- la table d\'événements  (8 entrées de 12 octets, lue via BC) — relocalisée en
+  DATA_PTRS/DATA_BLOCKS, l\'écart a bougé (preuve de la cause) ;
+- la table d\'animation  (15 octets, lue via ld h, + offset calculé) — bloc
+  aligné sur son adresse GB + patch ld h,D_30D1/256 en 2C88, l\'écart a encore bougé ;
+- d\'autres tables du même type restent : le traducteur signale maintenant chaque
+  ld h/d/b,d8 avec d8 <  (« base de pointeur vers la ROM »), liste à classer.
+
+### Pistes abandonnées / pièges corrigés
+- Tramplins sur toutes les étiquettes : écrasait les scripts lus dans la fenêtre
+  (les étiquettes internes ne sont pas des points de dispatch).
+- Code des banques en  : la SRAM GB (-) porte les structures d\'entités
+  écrites par le jeu — le code était écrasé (dérive folle en ). Zone sûre :
+  - (inutilisée par le jeu) + la zone libre sous .
+- Injection d\'état sautant - : les structures d\'entités en SRAM n\'étaient
+  pas réinjectées (dispatch vers le pointeur nul). Seuls les marqueurs BFF0-BFF5 sont
+  épargnés maintenant.
+- sim.trace(start, stop, ...) : exécute toujours depuis start (non reprise) ; le
+  pas-à-pas se fait en réalignant PC à chaque appel, budget d\'un tour ~1400 instructions.
+- Double appel sim.trace dans la boucle de comparaison : les compteurs décalaient de 1.
+- ld hl,sp+0 (banque 1E, ) traduit en hl=sp, drapeaux GB non conservés (morts ici).

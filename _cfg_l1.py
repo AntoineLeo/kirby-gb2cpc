@@ -1,19 +1,58 @@
+"""Configuration de comparaison logique GB <-> traduction Z80 (niveau 1).
+
+Faite pour tools/l1_cmp.py : compares C200-E000, marqueurs en BFF0.
+Joue la boucle de niveau 1 uniquement, sans menus.
+"""
 import os
 ROOT = r"C:\projets\kirby-gb2cpc"
 ROM = os.path.join(ROOT, "re/game.gb")
 LOGIC_OUT = os.path.join(ROOT, "build/l1/gb_logic.asm")
-ROOTS = {0x3396: "boucle niveau 1", 0x0040: "VBlank", 0x2BFD: "boucle VBlank"}
-STUBS = {0x0343: "gb_vblank", 0x0357: "S_INPUT_RET", 0x4259: "S_SWITCHABLE", 0x43cb: "S_SWITCHABLE", 0x4000: "S_SWITCHABLE", 0xDA10: "S_RET", 0xFF88: "S_RET", 0x4368: "S_SWITCHABLE"}
-SWITCHABLE_STUB = "S_SWITCHABLE"
-CODE_PTRS = [2298, 2336, 2393, 2412, 2440, 2314, 2455, 2572, 2584, 2625, 2646, 2671, 2740, 2787, 2847, 2359, 2368, 2490, 2510, 2530, 2551, 2324, 2289, 2428, 2596, 2344, 2378, 2464, 2694, 2756, 2878, 2799, 2932, 2948, 2389, 2408, 2817, 2823, 2829, 2835, 2841, 2609, 2617, 15104, 4609, 29953, 11010, 32258, 5891, 23811, 6404, 20740, 4869, 15621, 25605, 2822, 9990, 16902, 23302, 29190, 1287, 4871, 8455, 11527, 14599, 17415, 19975, 22535, 25095, 27399, 29447, 31495, 1121, 13233]
-DATA_PTRS = []
-DATA_BLOCKS = []
+ROOTS = {0x3396: "boucle de jeu", 0x0040: "VBlank", 0x2BFD: "VBlank entites",
+         0x0DA4: "cible far_hl", 0x0DCE: "cible far_hl", 0x0DF3: "cible far_hl",
+         0x0DF6: "cible far_hl", 0x0DFF: "cible far_hl", 0x0F50: "cible far_hl",
+         0x0F77: "cible far_hl", 0x1067: "cible far_hl", 0x1080: "cible far_hl",
+         0x10E6: "cible far_hl", 0x1166: "cible far_hl", 0x11BE: "cible far_hl",
+         0x1286: "cible far_hl", 0x2A2B: "cible far_hl", 0x2B91: "cible far_hl",
+         0x3576: "cible far_hl", 0x357F: "cible far_hl", 0x35A2: "cible far_hl",
+         0x383C: "cible far_hl", 0x3A6B: "cible far_hl"}
+STUBS = {0x0343: "gb_vblank", 0x0357: "S_INPUT_RET", 0xDA10: "S_RET", 0xFF88: "S_RET"}
+CODE_PTRS = [2298, 2336, 2393, 2412, 2440, 2314, 2455, 2572, 2584, 2625, 2646, 2671,
+             2740, 2787, 2847, 2359, 2368, 2490, 2510, 2530, 2551, 2324, 2289, 2428,
+             2596, 2344, 2378, 2464, 2694, 2756, 2878, 2799, 2932, 2948, 2389, 2408,
+             2817, 2823, 2829, 2835, 2841, 2609, 2617, 15104, 4609, 11010, 5891, 6404,
+             4869, 15621, 2822, 9990, 1287, 4871, 8455, 11527, 14599, 1121, 13233]
+DATA_PTRS = [0x29C9, 0x30D1]
+DATA_BLOCKS = [(0x29C9, 0x2A29, 'db'), (0x30D1, 0x30E0, 'db')]
 DATA_LABELS = []
-PATCHES = {0x05DD: "jp select_bank", 0x05F3: "jp select_bank_no_int", 0x0620: "jp far_hl", 0x015E: "jp G_016F", 0x3396: "call m1", 0x3399: "call m2", 0x33A4: "call m3", 0x0452: "jp G_0461", 0x33AF: "jp G_33B1"}
-TRACE_ENTRIES = [0x0100,0x0040,0x0048,0x0050,0x0058,0x0060]
+PATCHES = {0x05DD: "jp select_bank", 0x05F3: "jp select_bank_no_int", 0x0620: "jp far_dispatch",
+           0x3396: "call m1", 0x3399: "call m2", 0x33A4: "call m3",
+           0x015E: "jp G_016F", 0x0452: "jp G_0461", 0x33AF: "jp G_33B1",
+           0x2C88: "ld h,D_30D1/256"}
+TRACE_ENTRIES = [0x0100, 0x0040, 0x0048, 0x0050, 0x0058, 0x0060]
 RST_JUMPTABLE = {}
 RST_INLINE_DATA = {}
 TABLE_LEN = {}
-REGIONS = [(0xC000,0xE000),(0xFF80,0x10000),(0xA000,0xC000)]
-COMPARE = list(range(0xC000,0xE000))
+REGIONS = [(0xC000, 0xE000), (0xFF80, 0x10000), (0xA000, 0xC000)]
+COMPARE = list(range(0xC000, 0xE000))
 MASK = {}
+
+# --- Banques commutables --------------------------------------------------------
+# Entrees de code par banque (fenetre $4000-$7FFF), mesurees statiquement et
+# dynamiquement (tools/gb_banks.py) sur level1 + level1_actions. Les appels de
+# banque se dispatchent par la fenetre (tramplines) : la banque ici ne sert
+# qu'a choisir les octets a desassembler.
+BANK_ENTRIES = {
+    0x01: [0x4027, 0x450E, 0x45E4, 0x46BD, 0x46E1, 0x4792, 0x481B, 0x4821, 0x4967,
+           0x72BE, 0x72E5, 0x7407, 0x79F4, 0x7B40],
+    0x02: [0x747D],
+    0x07: [0x40E2, 0x4105, 0x4128, 0x41DC, 0x4259, 0x43A0, 0x43CB, 0x4584, 0x4611,
+           0x4662, 0x4A93, 0x5ADA, 0x5B28, 0x5B85, 0x5BD2, 0x7452, 0x746C],
+    0x08: [0x4000, 0x473A, 0x5ED9, 0x5F76, 0x607D, 0x615B, 0x6192, 0x6E10, 0x7012,
+           0x7067, 0x741F],
+    0x0B: [0x785B],
+    0x0E: [0x60B2],
+    0x0F: [0x4841],
+    0x1A: [0x4246, 0x424E, 0x427B, 0x47F6, 0x4829],
+    0x1E: [0x4299, 0x4368, 0x5DFF, 0x5FEB, 0x6002, 0x6011, 0x602E, 0x606D],
+    0x1F: [0x4232],
+}

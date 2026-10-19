@@ -1,6 +1,6 @@
 #!/bin/sh
 # Controle unique du projet.
-#   sh check.sh rapide    extraction + listing identique + autotests de traces
+#   sh check.sh rapide    construction + comparaison logique niveau 1 (600 tours)
 #   sh check.sh complet   idem + tous les scenarios + frontiere + etats
 # S'arrete a la premiere erreur et rend un code d'echec.
 set -e
@@ -8,6 +8,7 @@ cd "$(dirname "$0")"
 
 MODE="${1:-rapide}"
 PY=python
+export GB2ZX_CONFIG="$(pwd)/_cfg_l1.py"
 echo "== check.sh $MODE =="
 
 echo "-- extraction / images de reference"
@@ -18,6 +19,20 @@ $PY -X utf8 tools/gb_listing.py --check
 
 echo "-- references et documents"
 $PY -X utf8 tools/verify_refs.py $([ "$MODE" = complet ] && echo "" || echo "--quick")
+
+echo "-- traduction multi-banques"
+$PY -X utf8 tools/gb2z80.py
+
+echo "-- banc d'essai niveau 1"
+sjasmplus --nologo --msg=war --sym=build/l1/test.sym build/l1/test.asm
+
+echo "-- comparaison logique niveau 1 (600 tours)"
+if $PY -X utf8 tools/l1_cmp.py 2>&1 | tee /tmp/l1_cmp.log | grep -qE "^0 trames differentes sur"; then
+    echo "   OK : 0 trames differentes"
+else
+    echo "   ECART niveau 1 (detail dans /tmp/l1_cmp.log)"
+    exit 1
+fi
 
 echo "-- traces (comparaison GB contre GB)"
 $PY -X utf8 tools/gb_cmp.py self boot
@@ -35,4 +50,3 @@ if [ "$MODE" = complet ]; then
 fi
 
 echo "== OK ($MODE) =="
-

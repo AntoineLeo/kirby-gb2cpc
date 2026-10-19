@@ -86,3 +86,26 @@ Les formats complets des tables de niveau, des objets et des ennemis ne sont pas
 établis. La carte ne garde que ce que le fichier de noms ne peut pas porter : variables
 RAM, files d'affichage, pile, zones libres candidates. Le reste se lit dans le listing
 et `re/codemap.json`.
+
+
+## Banc d\'essai : fenêtre de banques (mécanisme de vérification)
+
+Le banc d\'essai (uild/l1/test.asm) reprend la carte GB à l\'identique (adresses
+brutes) pour que la comparaison reste directe :
+
+| Adresse | Contenu |
+|---|---|
+| - | support + logique traduite (banque 0) + banques 07/1E/0F/1F/1A |
+| - | table de sauts du script (fixe, le jeu fait ld h,) |
+| - | fenêtre : image de la banque FFA4 (octets ROM + tramplins jp BNN_xxxx aux points de dispatch de win_entries.json) |
+| - | VRAM GB (ombre, écrite par le jeu) |
+| - | SRAM GB (structures d'entités A000-B2FF, marqueurs BFF0-BFF5) |
+| - | RAM GB |
+| - | suite des banques traduites (08/0B/0E/02/01) — écho inutilisé par le jeu |
+
+- select_bank (patch de /) : ld (),a + out (),a ; l1_cmp place
+  l'image de la banque demandée (le CPC mappera ou copiera autrement).
+- Appels vers la fenêtre : émis en adresse GB brute, ils tombent sur les tramplins.
+  Appels de banque 0 dynamiques (jp hl en ) : ar_dispatch + far0_pairs.
+- Données ROM lues par pointeur (calculé) : blocs DATA_BLOCKS alignés sur l'adresse
+  GB d'origine + patch de l'octet haut (ld h,D_xxxx/256) — voir docs/journal.md.
