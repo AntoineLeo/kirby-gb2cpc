@@ -1,0 +1,31 @@
+{
+ "state": "re/ref/start_state.state",
+ "frames": 900,
+ "press": "0-899:right,60-67:a,180-187:a,300-307:b,420-427:a,540-547:b,660-667:a,780-787:b",
+ "screens": [
+  0,
+  120,
+  240,
+  360,
+  480,
+  600,
+  720,
+  899
+ ],
+ "coverage_map": "re/coverage_safe.json",
+ "name": "level1_actions",
+ "rom": "re/game.gb",
+ "every": 1,
+ "trace": "re/traces/level1_actions.npz",
+ "screen_dir": "re/traces/screens",
+ "states": [
+  {
+   "frame": 480,
+   "path": "re/states/level1_room.state"
+  },
+  {
+   "frame": 899,
+   "path": "re/states/level1_room2.state"
+  }
+ ]
+}

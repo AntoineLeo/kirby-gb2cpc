@@ -1,0 +1,25 @@
+{
+ "state": "re/ref/start_state.state",
+ "frames": 600,
+ "inputs": [
+  {
+   "from": 30,
+   "to": 599,
+   "buttons": [
+    "right"
+   ]
+  }
+ ],
+ "screens": [
+  0,
+  100,
+  300,
+  599
+ ],
+ "coverage_map": "re/coverage_safe.json",
+ "name": "level1",
+ "rom": "re/game.gb",
+ "every": 1,
+ "trace": "re/traces/level1.npz",
+ "screen_dir": "re/traces/screens"
+}

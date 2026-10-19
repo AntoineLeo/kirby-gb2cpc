@@ -1,0 +1,23 @@
+{
+ "frames": 360,
+ "screens": [
+  0,
+  60,
+  120,
+  180,
+  240,
+  300,
+  359
+ ],
+ "name": "boot",
+ "rom": "re/game.gb",
+ "every": 1,
+ "trace": "re/traces/boot.npz",
+ "screen_dir": "re/traces/screens",
+ "states": [
+  {
+   "frame": 359,
+   "path": "re/states/boot.state"
+  }
+ ]
+}

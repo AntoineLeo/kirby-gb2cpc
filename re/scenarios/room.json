@@ -1,0 +1,6 @@
+{
+  "name": "room",
+  "state": "../states/level1_room.state",
+  "frames": 300,
+  "press": "5-299:right"
+}

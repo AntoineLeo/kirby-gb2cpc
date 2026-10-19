@@ -1,0 +1,22 @@
+{
+ "frames": 520,
+ "press": "420-427:start",
+ "screens": [
+  0,
+  120,
+  359,
+  420,
+  519
+ ],
+ "name": "fileselect",
+ "rom": "re/game.gb",
+ "every": 1,
+ "trace": "re/traces/fileselect.npz",
+ "screen_dir": "re/traces/screens",
+ "states": [
+  {
+   "frame": 519,
+   "path": "re/states/fileselect.state"
+  }
+ ]
+}

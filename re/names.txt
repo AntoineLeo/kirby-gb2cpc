@@ -1,0 +1,22 @@
+# Fichier de noms unique (banque:adresse<TAB>nom<TAB>commentaire)
+# Seulement ce qui est sur : vecteurs d'interruption, point d'entree, routines
+# dont l'appel a ete lu dans le code. Les hypotheses sont dans docs/frontiere.md.
+00:0040	VBlank	vecteur $40 : sauve les registres puis saute en $0159
+00:0048	Stat	vecteur $48 : saute en $DA13 (RAM echo ; a verifier)
+00:0050	Timer	vecteur $50 : sauve les registres puis saute en $0333
+00:0058	Serial	vecteur $58 : reti
+00:0060	Joypad	vecteur $60 : reti
+00:0100	Entry	point d'entree de la cartouche : nop puis jp $0150
+00:0150	Reset	di ; selectionne la banque ROM $1A ; jp $4000
+00:0159	VBlankMain	suite du vecteur VBlank (registres deja sauves)
+00:0333	TimerMain	suite du vecteur Timer (registres deja sauves)
+1a:4000	InitBank1A	initialisation : efface VRAM puis WRAM, appelle $062F
+00:0287	VBlankFlag	set le drapeau de trame en RAM (ecrit par le vecteur VBlank)
+00:0343	WaitVBlank	attend le drapeau de trame, incremente le compteur DA0E
+00:0357	ReadInput	lit la manette 1 et met a jour l'etat d'entree
+00:036E	ReadPadRaw	lecture brute de P1 () avec anti-rebond
+00:0387	ReadPadState	lit directions et boutons, applique l'anti-rebond
+00:041E	UpdatePadState	mise a jour courant/nouveau/relache/repete
+00:05DD	SetBank	di ; selectionne la banque ROM en  ; memorise dans FFA4
+00:05F3	SetBankNoInt	meme chose sans di/ei
+00:05CF	CallBank	selectionne une banque, appelle un pointeur, restaure la banque
