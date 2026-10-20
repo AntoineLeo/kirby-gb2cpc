@@ -1,5 +1,5 @@
 #!/bin/sh
-# Capture d'écran automatique dans Caprice32 (CPC664) :
+# Capture d'écran automatique dans Caprice32 (CPC6128) :
 #   sh tools/cpcshot.sh [délais] [sortie.png] [disquette]
 # Lance RUN"TENNIS", attend N fois CAP32_DELAY, capture l'écran et quitte.
 cd "$(dirname "$0")/.."
@@ -16,5 +16,5 @@ CMD=$(printf 'run"game\n%s\(CAP32_SCRNSHOT)\(CAP32_EXIT)' "$D")
 DSKW=$(cygpath -w "$PWD/$DSK")
 OUTP="$PWD/$OUT"
 cd "$(dirname "$CAP")"
-timeout 600 "$CAP" -O system.model=1 -O "file.sdump_dir=$(cygpath -w "$TMP")" -a "$CMD" "$DSKW" > "$TMP/log.txt" 2>&1
+timeout 600 "$CAP" -O system.model=2 -O "file.sdump_dir=$(cygpath -w "$TMP")" -a "$CMD" "$DSKW" > "$TMP/log.txt" 2>&1
 cp "$TMP"/screenshot_*.png "$OUTP" && echo "capture : $OUT"

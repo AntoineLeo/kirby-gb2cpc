@@ -8,5 +8,5 @@ CMD=$(printf 'run"game
 %s%s
 %s\(CAP32_SCRNSHOT)\(CAP32_EXIT)' "$D" "$KEYS" "$D")
 DSKW=$(cygpath -w "$PWD/$DSK"); OUTP="$PWD/$OUT"; cd "$(dirname "$CAP")"
-timeout 600 "$CAP" -O system.model=1 -O "file.sdump_dir=$(cygpath -w "$TMP")" -a "$CMD" "$DSKW" > "$TMP/log.txt" 2>&1
+timeout 600 "$CAP" -O system.model=2 -O "file.sdump_dir=$(cygpath -w "$TMP")" -a "$CMD" "$DSKW" > "$TMP/log.txt" 2>&1
 cp "$TMP"/screenshot_*.png "$OUTP" && echo "capture : $OUT"

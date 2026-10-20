@@ -2,7 +2,8 @@
 
 ## 1. État
 
-- Préparation complète (`docs/preparation.md`), traces et états de reprise disponibles.
+- Préparation (`docs/journal.md`, `docs/frontiere.md`, `docs/memoire.md`), traces et
+  états de reprise disponibles.
 - Conception écrite (`docs/portage.md`) : mémoire, mode 1 160×144, cadence 6 pas/5 trames
   (2,1,1,1,1), contrôles flèches + Z (A) + X (B), Enter = Start, Shift = Select,
   manette 2 boutons, défilement 8 px/50 Hz par CRTC (à mesurer).
@@ -12,16 +13,16 @@
 - Données ROM lues par pointeur : mécanisme de correction en place et convergent
   (blocs alignés sur l'adresse GB + patches d'octet haut ; tables $29C9, $2BF0,
   $30C7-$30FF, $3F56-$3FFF corrigées — voir docs/journal.md).
-- Vérification `l1_cmp` (trace level1_loop) : **0 octet d'écart sur les trames sans
-  événement d'entité** ; les trames d'événement (4-5, 13-14) et leurs suites : 29 octets
-  d'écart en trame 4 (compteurs et pointeurs de script d'entité).
+- Vérification : `check.ps1 rapide` (ou `$env:FRAMES="600"; python -X utf8 tools\l1_cmp.py`,
+  trace level1_loop). État : 0 écart hors trames d'événement ; écarts résiduels sur les
+  trames d'événement (chiffres courants et historique : `docs/journal.md`).
 
 ## 2. Commandes
 
 - Contrôle : `powershell -ExecutionPolicy Bypass -File check.ps1 rapide|complet`
   (= `sh check.sh rapide|complet`) : extraction, listing, traduction multi-banques,
   assemblage du banc d'essai, comparaison 600 tours. Échoue tant que les événements
-  divergent (voulumétrie).
+  divergent (volontaire).
 - Comparaison seule : `$env:FRAMES="20"; python -X utf8 tools\l1_cmp.py`.
 - Pas-à-pas d'une trame : `python -X utf8 tools\l1_step.py` (`FRAME=n`) : écritures,
   commandes de script, état final vs trace.
@@ -29,7 +30,8 @@
 
 ## 3. Prochaine action exacte
 
-Fermer les 29 octets d'écart des trames d'événement (la logique de script d'entité) :
+Fermer les écarts des trames d'événement (la logique de script d'entité) — 29 octets
+en trame 4 lors du dernier relevé, à remesurer avec `tools\l1_step.py` :
 1. `python tools\l1_step.py` avec `FRAME=4` : le journal des commandes montre que le
    harnais recharge les compteurs CE56-CE58 à 0x09 (la valeur du slot B=7) alors que le
    GB recharge 0A/01/01 par slot, et que la chaîne 2F4B avance le pointeur CE77-CE79

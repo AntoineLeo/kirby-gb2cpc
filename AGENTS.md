@@ -1,0 +1,1 @@
+Tu es installé sur un système Windows, pas conséquent ton outil de prédilection est powershell. N'utilise pas de commande shell Linux, elles ne seront pas comprises par l'interpréteur de commande.

@@ -163,54 +163,53 @@ au début du niveau et par les écritures VRAM 9C21/9C2A/9C2F/9C09.
 - Défilement : 8 px à 50 Hz par le CRTC (R12/R13), réglage à mesurer puis ajuster.
 
 ### Outils ajoutés
-- 	ools/gb_banks.py : entrées de banque (statique + dynamique PyBoy), fermeture par
+- tools/gb_banks.py : entrées de banque (statique + dynamique PyBoy), fermeture par
   banque, lectures de données. Selftest inclus. C'est lui qui a montré que les motifs
   ld a,N ; call SetBank ne suffisent pas : les appels de banque passent aussi par
   CallBank (05CF, hl=constante) et par les pointeurs de callbacks (0887→0620).
-- uild/l1/win_entries.json (produit par gb2z80) : les points de dispatch de fenêtre,
+- build/l1/win_entries.json (produit par gb2z80) : les points de dispatch de fenêtre,
   seuls lieux où poser les tramplins.
 
 ### Mécanisme de banque retenu (banc d'essai)
-- La fenêtre - montre la banque courante : octets ROM bruts + tramplins
+- La fenêtre $4000-$7FFF montre la banque courante : octets ROM bruts + tramplins
   jp BNN_xxxx aux seuls points de dispatch (les étiquettes internes n'en reçoivent
   pas : les poser partout écrasait les octets de script lus dans la fenêtre — corrigé).
-- select_bank = ld (),a ; out (),a ; l1_cmp échange l'image par le tracer.
-- ar_dispatch (patch de ) : hl≥ → jp (hl) (tramplin, hl inchangé) ;
-  hl< → table far0_pairs (20 cibles mesurées) puis saut. Une cible inconnue
+- select_bank = ld ($FFA4),a ; out ($FE),a ; l1_cmp échange l'image par le traceur.
+- far_dispatch (patch de $0620) : hl≥$4000 → jp (hl) (tramplin, hl inchangé) ;
+  hl<$4000 → table far0_pairs (20 cibles mesurées) puis saut. Une cible inconnue
   écrit son adresse en C200 et boucle : signalée tout de suite par la comparaison.
 - Banques traduites : 01, 02, 07, 08, 0B, 0E, 0F, 1A, 1E, 1F (BANK_ENTRIES dans
   _cfg_l1.py, mesurées par gb_banks sur level1 + level1_actions).
 
 ### Vérification (trace level1_loop, 600 tours)
-- Trames sans événement d\'entité : **0 octet d\'écart** (mesuré : trames 1-3, 10-12…),
+- Trames sans événement d'entité : **0 octet d'écart** (mesuré : trames 1-3, 10-12…),
   le tour complet tournant (m1/m2/m3 appellent G_0496/G_086B/G_04AE, plus des stubs).
-- Trames d\'événement (4-5, 13-14) et leurs suites (6-9, 15-18) : écarts, 12 trames
+- Trames d'événement (4-5, 13-14) et leurs suites (6-9, 15-18) : écarts, 12 trames
   sur les 20 premières.
 
-### Cause racine des écarts d\'événement (identifiée, pas encore résolue)
-Le banc d\'essai réutilise les adresses ROM (-) pour le code traduit : les
+### Cause racine des écarts d'événement (identifiée, pas encore résolue)
+Le banc d'essai réutilise les adresses ROM ($0000-$3FFF) pour le code traduit : les
 **données ROM lues par pointeur calculé** sont servies avec les octets du code traduit.
 Trois lectures fautives prouvées pas-à-pas (outil de pas-à-pas par sim.trace(pc,0,1,0)) :
-- la table d\'événements  (8 entrées de 12 octets, lue via BC) — relocalisée en
-  DATA_PTRS/DATA_BLOCKS, l\'écart a bougé (preuve de la cause) ;
-- la table d\'animation  (15 octets, lue via ld h, + offset calculé) — bloc
-  aligné sur son adresse GB + patch ld h,D_30D1/256 en 2C88, l\'écart a encore bougé ;
-- d\'autres tables du même type restent : le traducteur signale maintenant chaque
-  ld h/d/b,d8 avec d8 <  (« base de pointeur vers la ROM »), liste à classer.
+- la table d'événements $29C9 (8 entrées de 12 octets, lue via BC) — relocalisée en
+  DATA_PTRS/DATA_BLOCKS, l'écart a bougé (preuve de la cause) ;
+- la table d'animation $30D1 (15 octets, lue via ld h,d8 + offset calculé) — bloc
+  aligné sur son adresse GB + patch ld h,D_30D1/256 en 2C88, l'écart a encore bougé ;
+- d'autres tables du même type restent : le traducteur signale maintenant chaque
+  ld h/d/b,d8 avec d8 < $4000 (« base de pointeur vers la ROM »), liste à classer.
 
 ### Pistes abandonnées / pièges corrigés
 - Tramplins sur toutes les étiquettes : écrasait les scripts lus dans la fenêtre
   (les étiquettes internes ne sont pas des points de dispatch).
-- Code des banques en  : la SRAM GB (-) porte les structures d\'entités
-  écrites par le jeu — le code était écrasé (dérive folle en ). Zone sûre :
-  - (inutilisée par le jeu) + la zone libre sous .
-- Injection d\'état sautant - : les structures d\'entités en SRAM n\'étaient
+- Code des banques en $A000 : la SRAM GB ($A000-$B2FF) porte les structures d'entités
+  écrites par le jeu — le code était écrasé (dérive folle à l’exécution). Zone sûre : $E000-$FDFF (inutilisée par le jeu) + la zone libre sous $3F00.
+- Injection d'état sautant $A000-$BFFF : les structures d'entités en SRAM n'étaient
   pas réinjectées (dispatch vers le pointeur nul). Seuls les marqueurs BFF0-BFF5 sont
   épargnés maintenant.
 - sim.trace(start, stop, ...) : exécute toujours depuis start (non reprise) ; le
-  pas-à-pas se fait en réalignant PC à chaque appel, budget d\'un tour ~1400 instructions.
+  pas-à-pas se fait en réalignant PC à chaque appel, budget d'un tour ~1400 instructions.
 - Double appel sim.trace dans la boucle de comparaison : les compteurs décalaient de 1.
-- ld hl,sp+0 (banque 1E, ) traduit en hl=sp, drapeaux GB non conservés (morts ici).
+- ld hl,sp+0 (banque 1E) traduit en hl=sp, drapeaux GB non conservés (morts ici).
 
 
 ## Portage — classification des donnees ROM (suite de la fenêtre de banques)
@@ -218,35 +217,35 @@ Trois lectures fautives prouvées pas-à-pas (outil de pas-à-pas par sim.trace(
 ### Mecanisme de correction (convergent, prouve par pas-à-pas)
 Le banc d'essai reutilise les adresses ROM pour le code traduit : chaque donnee ROM
 lue par pointeur est servie par un bloc aligné sur son adresse GB (defs + contenu brut)
-et, si le pointeur est calcule, un patch de l\'octet haut (ld h,D_xxxx/256).
-Outillage : 	ools/l1_step.py (pas-à-pas via sim.trace(pc,0,1,0) + guet d\'ecritures),
-	ools/gb_banks.py (entrees de banque), le traducteur signale les bases de pointeur
-(ld h/d/b,d8 avec d8 < ).
+et, si le pointeur est calcule, un patch de l'octet haut (ld h,D_xxxx/256).
+Outillage : tools/l1_step.py (pas-à-pas via sim.trace(pc,0,1,0) + guet d'ecritures),
+tools/gb_banks.py (entrees de banque), le traducteur signale les bases de pointeur
+(ld h/d/b,d8 avec d8 < $4000).
 
 ### Corrections faites (chaque fois un recul mesure des ecarts)
-- $29C9 : table d\'evenements (8 x 12 octets, lue via BC) — bloc DATA_PTRS.
+- $29C9 : table d'evenements (8 x 12 octets, lue via BC) — bloc DATA_PTRS.
 - $2BF0 : table 13 octets, pointeur calcule — bloc + patch 2BD8.
-- $30C7- : tables d\'animation (3 lectures : 2C88, 2D1C, 2EF5) — bloc unique
+- $30C7-$30FF : tables d'animation (3 lectures : 2C88, 2D1C, 2EF5) — bloc unique
   aligne + patches.
-- $3F56- : tables de pointeurs deuxieme niveau (valeurs 074E/07C4 lues via
-  hl calcule) — servies a leur adresse d\'origine (zone libre du banc, incbin).
+- $3F56-$3FFF : tables de pointeurs deuxieme niveau (valeurs 074E/07C4 lues via
+  hl calcule) — servies a leur adresse d'origine (zone libre du banc, incbin).
 - Tramplins de fenetre limites aux vrais points de dispatch (win_entries.json) :
   les poser partout ecrasait les octets de script lus dans la fenetre.
-- Code des banques deplace hors de la SRAM GB (- ecrite par le jeu).
+- Code des banques deplace hors de la SRAM GB ($A000-$B2FF ecrite par le jeu).
 
 ### Etat de la comparaison (trace level1_loop)
-- Trames sans evenement : **0 octet d\'ecart** (1-3, 10-12...).
-- Trames 4-5 / 13-14 (evenements d\'entite) + suites : 29 octets d\'ecart en trame 4
+- Trames sans evenement : **0 octet d'ecart** (1-3, 10-12...).
+- Trames 4-5 / 13-14 (evenements d'entite) + suites : 29 octets d'ecart en trame 4
   (etape amelioree : 44 -> 29). Les ecarts restants : compteurs CE82+B (valeur de
   recharge 05/04), pointeurs de script CE77-CE79 (+3 octets de derive sur la chaine
   2F4B), compteurs CE56-CE58 (recharges 09 au lieu de 0A/01/01).
 
 ### Piste en cours (precise)
-Les arguments de recharge des scripts d\'entite : le parseur G_2D34/G_2D3F lit
-l\'argument via (de) + le champ [CEAA+B] + la table WRAM . Le harnais recharge
+Les arguments de recharge des scripts d'entite : le parseur G_2D34/G_2D3F lit
+l'argument via (de) + le champ [CEAA+B] + la table WRAM $DExx. Le harnais recharge
 tous les compteurs a 0x09 (la valeur du slot B=7) alors que le GB recharge
-(0A,01,01,09) par slot. A verifier : la lecture de l\'argument par slot et
-l\'avance du pointeur de la chaine 2F4B (le GB s\'arrete au opcode FF de fin de
+(0A,01,01,09) par slot. A verifier : la lecture de l'argument par slot et
+l'avance du pointeur de la chaine 2F4B (le GB s'arrete au opcode FF de fin de
 script, le harnais continue de 3 octets).
 
 ### Reperes de debug (outils)
