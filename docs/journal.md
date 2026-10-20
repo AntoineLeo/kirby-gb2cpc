@@ -211,3 +211,47 @@ Trois lectures fautives prouvées pas-à-pas (outil de pas-à-pas par sim.trace(
   pas-à-pas se fait en réalignant PC à chaque appel, budget d\'un tour ~1400 instructions.
 - Double appel sim.trace dans la boucle de comparaison : les compteurs décalaient de 1.
 - ld hl,sp+0 (banque 1E, ) traduit en hl=sp, drapeaux GB non conservés (morts ici).
+
+
+## Portage — classification des donnees ROM (suite de la fenêtre de banques)
+
+### Mecanisme de correction (convergent, prouve par pas-à-pas)
+Le banc d'essai reutilise les adresses ROM pour le code traduit : chaque donnee ROM
+lue par pointeur est servie par un bloc aligné sur son adresse GB (defs + contenu brut)
+et, si le pointeur est calcule, un patch de l\'octet haut (ld h,D_xxxx/256).
+Outillage : 	ools/l1_step.py (pas-à-pas via sim.trace(pc,0,1,0) + guet d\'ecritures),
+	ools/gb_banks.py (entrees de banque), le traducteur signale les bases de pointeur
+(ld h/d/b,d8 avec d8 < ).
+
+### Corrections faites (chaque fois un recul mesure des ecarts)
+- $29C9 : table d\'evenements (8 x 12 octets, lue via BC) — bloc DATA_PTRS.
+- $2BF0 : table 13 octets, pointeur calcule — bloc + patch 2BD8.
+- $30C7- : tables d\'animation (3 lectures : 2C88, 2D1C, 2EF5) — bloc unique
+  aligne + patches.
+- $3F56- : tables de pointeurs deuxieme niveau (valeurs 074E/07C4 lues via
+  hl calcule) — servies a leur adresse d\'origine (zone libre du banc, incbin).
+- Tramplins de fenetre limites aux vrais points de dispatch (win_entries.json) :
+  les poser partout ecrasait les octets de script lus dans la fenetre.
+- Code des banques deplace hors de la SRAM GB (- ecrite par le jeu).
+
+### Etat de la comparaison (trace level1_loop)
+- Trames sans evenement : **0 octet d\'ecart** (1-3, 10-12...).
+- Trames 4-5 / 13-14 (evenements d\'entite) + suites : 29 octets d\'ecart en trame 4
+  (etape amelioree : 44 -> 29). Les ecarts restants : compteurs CE82+B (valeur de
+  recharge 05/04), pointeurs de script CE77-CE79 (+3 octets de derive sur la chaine
+  2F4B), compteurs CE56-CE58 (recharges 09 au lieu de 0A/01/01).
+
+### Piste en cours (precise)
+Les arguments de recharge des scripts d\'entite : le parseur G_2D34/G_2D3F lit
+l\'argument via (de) + le champ [CEAA+B] + la table WRAM . Le harnais recharge
+tous les compteurs a 0x09 (la valeur du slot B=7) alors que le GB recharge
+(0A,01,01,09) par slot. A verifier : la lecture de l\'argument par slot et
+l\'avance du pointeur de la chaine 2F4B (le GB s\'arrete au opcode FF de fin de
+script, le harnais continue de 3 octets).
+
+### Reperes de debug (outils)
+- python tools/l1_step.py avec FRAME=4 : pas-à-pas, ecritures C200-CFFF + FF80-FFFF,
+  journal des commandes de script (entrees 2C64/2C65/2F56), etat final vs trace.
+- gb_anchor_only.py / gb_slots.py (temp) : etat GB aux entrees de routine —
+  attention, les hooks PyBoy modifient la ROM : comparer avec la trace (l1_loop)
+  qui fait foi, pas avec un rejoue piege.

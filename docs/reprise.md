@@ -2,68 +2,64 @@
 
 ## 1. État
 
-- Préparation complète (voir `docs/preparation.md`), extraction, listing réassemblable,
-  scénarios et traces (level1, level1_loop, level1_actions), états de reprise.
-- Conception écrite dans `docs/portage.md` (mémoire, mode 1 160×144, cadence, défilement).
-  Décisions utilisateur validées : cadence 6 pas / 5 trames (2,1,1,1,1) ; contrôles
-  flèches + Z (A) + X (B), Enter = Start, Shift = Select, manette 2 boutons ;
-  défilement 8 px à 50 Hz par le CRTC (réglage à mesurer).
-- Fenêtre de banques opérationnelle dans le banc d'essai : banques 01/02/07/08/0B/0E/
-  0F/1A/1E/1F traduites (`BANK_ENTRIES`), images de fenêtre = octets ROM + tramplins
-  aux points de dispatch (`build/l1/win_entries.json`), `select_bank` = `out ($FE),a`
-  échangé par l1_cmp, `far_dispatch` (patch $0620) avec table far0_pairs pour la banque 0.
-- Tour complet branché (m1/m2/m3 appellent G_0496/G_086B/G_04AE).
-- Vérification `l1_cmp` sur level1_loop : **0 octet d'écart sur les trames sans
-  événement d'entité** ; les trames d'événement (4-5, 13-14) et leurs suites divergent
-  encore (12 trames sur les 20 premières).
-- Cause racine des écarts restants identifiée : les données ROM lues par pointeur
-  calculé sont servies par le code traduit dans le banc d'essai. Mécanisme de
-  correction en place (blocs DATA_BLOCKS alignés sur l'adresse GB + patch de l'octet
-  haut) ; il reste à classer les tables signalées par le traducteur.
+- Préparation complète (`docs/preparation.md`), traces et états de reprise disponibles.
+- Conception écrite (`docs/portage.md`) : mémoire, mode 1 160×144, cadence 6 pas/5 trames
+  (2,1,1,1,1), contrôles flèches + Z (A) + X (B), Enter = Start, Shift = Select,
+  manette 2 boutons, défilement 8 px/50 Hz par CRTC (à mesurer).
+- Banc d'essai complet : banques 01/02/07/08/0B/0E/0F/1A/1E/1F traduites, fenêtre de
+  banque (octets ROM + tramplins aux points de dispatch), `select_bank` par OUT échangé
+  par l1_cmp, `far_dispatch` + far0_pairs (20 cibles banque 0), tour complet branché.
+- Données ROM lues par pointeur : mécanisme de correction en place et convergent
+  (blocs alignés sur l'adresse GB + patches d'octet haut ; tables $29C9, $2BF0,
+  $30C7-$30FF, $3F56-$3FFF corrigées — voir docs/journal.md).
+- Vérification `l1_cmp` (trace level1_loop) : **0 octet d'écart sur les trames sans
+  événement d'entité** ; les trames d'événement (4-5, 13-14) et leurs suites : 29 octets
+  d'écart en trame 4 (compteurs et pointeurs de script d'entité).
 
 ## 2. Commandes
 
-- Contrôle : `sh check.sh rapide` / `sh check.sh complet` (via `powershell -ExecutionPolicy Bypass -File check.ps1 rapide|complet`).
-  Enchaîne extraction, listing, traduction multi-banques (gb2z80), assemblage du banc
-  d'essai, comparaison 600 tours de niveau 1 (`tools/l1_cmp.py`, FRAMES=600).
-  NB : la comparaison échoue tant que les trames d'événement divergent (voulumétrie).
-- Comparaison seule : `$env:FRAMES="20"; python -X utf8 tools\l1_cmp.py` (résumé par
-  trame + 8 premiers écarts).
-- Analyse des banques : `$env:GB2ZX_CONFIG=(Resolve-Path _cfg_l1.py); python -X utf8 tools\gb_banks.py --out build\banks_l1.json [--dynamic re\scenarios\level1.json]`.
-- Pas-à-pas d'une trame : `python -X utf8 C:\Users\Aie\AppData\Local\Temp\kilo\l1_step.py`
-  (à rapatrier dans tools/ si besoin) avec `FRAME=n`, guette les écritures CExx.
+- Contrôle : `powershell -ExecutionPolicy Bypass -File check.ps1 rapide|complet`
+  (= `sh check.sh rapide|complet`) : extraction, listing, traduction multi-banques,
+  assemblage du banc d'essai, comparaison 600 tours. Échoue tant que les événements
+  divergent (voulumétrie).
+- Comparaison seule : `$env:FRAMES="20"; python -X utf8 tools\l1_cmp.py`.
+- Pas-à-pas d'une trame : `python -X utf8 tools\l1_step.py` (`FRAME=n`) : écritures,
+  commandes de script, état final vs trace.
+- Banques : `$env:GB2ZX_CONFIG=(Resolve-Path _cfg_l1.py); python -X utf8 tools\gb_banks.py`.
 
 ## 3. Prochaine action exacte
 
-Classer les bases de pointeur ROM signalées par le traducteur (« base de pointeur vers
-la ROM ») et fermer les écarts d'événement :
-1. Lancer la traduction et relever la liste `ld h/d/b,d8` (d8 < $40) ;
-2. pour chaque site, regarder la routine (listing re/listing) : constante pure (ignorer),
-   table de données ROM → ajout DATA_PTRS/DATA_BLOCKS (+ patch de l'octet haut si le
-   pointeur est calculé, comme 2C88 → `ld h,D_30D1/256`) ;
-3. viser d'abord les tables des banques 1E ($06xx via de) et 1A, qui alimentent la file
-   sonore écrite par l'événement (miroir CE06-CE14) ;
-4. après chaque ajout : comparaison 20 tours — les écarts doivent se réduire ; quand
-   les événements passent, relancer 600 tours.
-En parallèle, si la classification stagne : variante structurelle « image ROM aux
-adresses GB » (tous les accès deviennent justes d'un coup), mais 6 Ko de code à trouver
-hors $0000-$3FFF (zones sûres mesurées : $B300-$BFEF + $E000-$FDFF + $3F56 ≈ 11 Ko
-pour 18 Ko de code).
+Fermer les 29 octets d'écart des trames d'événement (la logique de script d'entité) :
+1. `python tools\l1_step.py` avec `FRAME=4` : le journal des commandes montre que le
+   harnais recharge les compteurs CE56-CE58 à 0x09 (la valeur du slot B=7) alors que le
+   GB recharge 0A/01/01 par slot, et que la chaîne 2F4B avance le pointeur CE77-CE79
+   de 3 octets de trop (le GB s'arrête au opcode FF de fin de script) ;
+2. suivre la lecture d'argument du parseur G_2D34/G_2D3F (l'argument = octet de script
+   transformé + champ [CEAA+B] + table WRAM $DExx) et la boucle des handlers
+   (G_2F56 → G_2F69/G_2F86/G_2FB6/G_300D) ; vérifier chaque lecture de table ROM
+   restante avec le traducteur (les bases `ld h/d/b,d8`) ;
+3. après chaque correction : comparaison 20 tours (les écarts doivent baisser), puis
+   600 tours quand les événements passent.
+Si les scripts piétinent : comparer les flux de commandes GB vs harnais par
+`tools/l1_step.py` (les commandes du harnais) contre les octets de script en fenêtre
+(les commandes attendues) — l'écart de consommation désigne la commande fautive.
 
 ## 4. Pièges
 
-- Les étiquettes internes de banque ne sont PAS des points de dispatch : ne poser des
-  tramplins qu'aux entrées (win_entries.json), sinon les octets de script lus dans la
-  fenêtre sont écrasés.
+- Les étiquettes internes de banque ne sont PAS des points de dispatch : les tramplins
+  se posent aux entrées seules (win_entries.json), sinon les octets de script lus dans
+  la fenêtre sont écrasés.
 - Ne jamais mettre de code dans $A000-$B2FF (SRAM = structures d'entités écrites par le
-  jeu) ni dans $8000-$9FFF (VRAM écrite par les uploads) ni dans la fenêtre $4000-$7FFF.
-  Zone sûre : $E000-$FDFF (écho inutilisé) + la place libre sous $3F00.
-- L'injection d'état de l1_cmp doit couvrir toute la trace sauf les marqueurs BFF0-BFF5 ;
-  sauter $A000-$C000 laissait les structures d'entités à zéro (dispatch vers le pointeur nul).
-- `sim.trace(a, b, ...)` exécute toujours depuis `a` ; le budget de T-states sert de
-  garde-fou, une dérive folle se voit au PC final ≠ ancre et à la pile non déséquilibrée.
-- Les hooks PyBoy modifient la ROM : ne les poser que sur des entrées réellement exécutées
-  (re/coverage_safe.json).
-- La mémoire 0000-3FFF du CSimulator accepte les écritures : protéger ce qu'on y met.
-- Une seule commande de contrôle : `sh check.sh rapide|complet` ; elle s'arrête à la
-  première erreur. Le détail des comparaisons va dans /tmp/l1_cmp.log.
+  jeu), $8000-$9FFF (VRAM) ni la fenêtre $4000-$7FFF. Zones sûres : $E000-$FDFF et la
+  place libre sous $3F00 ; les données ROM se servent à leur adresse d'origine quand la
+  zone est libre (le cas $3F56-$3FFF).
+- L'injection d'état doit couvrir toute la trace sauf les marqueurs BFF0-BFF5.
+- `sim.trace(a, b, ...)` exécute toujours depuis `a` (non reprise) : le pas-à-pas
+  réaligne PC à chaque appel, budget d'un tour ≈ 3000 instructions.
+- Les hooks PyBoy modifient la ROM : la trace (l1_loop) fait foi pour la comparaison,
+  pas un rejouage avec hooks (observé : états différents du hook au même point).
+- Les blocs DATA_BLOCKS s'alignent sur l'adresse GB (defs) pour que les pointeurs
+  calculés (`ld h,imm` + offset) tombent juste ; les patches d'octet haut pointent
+  vers D_xxxx/256.
+- Une seule commande de contrôle : `sh check.sh rapide|complet`, elle s'arrête à la
+  première erreur ; le détail des comparaisons va dans /tmp/l1_cmp.log.

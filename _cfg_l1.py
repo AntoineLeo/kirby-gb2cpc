@@ -21,13 +21,14 @@ CODE_PTRS = [2298, 2336, 2393, 2412, 2440, 2314, 2455, 2572, 2584, 2625, 2646, 2
              2596, 2344, 2378, 2464, 2694, 2756, 2878, 2799, 2932, 2948, 2389, 2408,
              2817, 2823, 2829, 2835, 2841, 2609, 2617, 15104, 4609, 11010, 5891, 6404,
              4869, 15621, 2822, 9990, 1287, 4871, 8455, 11527, 14599, 1121, 13233]
-DATA_PTRS = [0x29C9, 0x30D1]
-DATA_BLOCKS = [(0x29C9, 0x2A29, 'db'), (0x30D1, 0x30E0, 'db')]
+DATA_PTRS = [0x29C9, 0x2BF0, 0x30C7]
+DATA_BLOCKS = [(0x29C9, 0x2A29, 'db'), (0x2BF0, 0x2BFD, 'db'), (0x30C7, 0x3100, 'db')]
 DATA_LABELS = []
 PATCHES = {0x05DD: "jp select_bank", 0x05F3: "jp select_bank_no_int", 0x0620: "jp far_dispatch",
            0x3396: "call m1", 0x3399: "call m2", 0x33A4: "call m3",
            0x015E: "jp G_016F", 0x0452: "jp G_0461", 0x33AF: "jp G_33B1",
-           0x2C88: "ld h,D_30D1/256"}
+           0x2C88: "ld h,D_30C7/256", 0x2D1C: "ld h,D_30C7/256",
+           0x2BD8: "ld h,D_2BF0/256", 0x2F01: "adc a,D_30C7/256"}
 TRACE_ENTRIES = [0x0100, 0x0040, 0x0048, 0x0050, 0x0058, 0x0060]
 RST_JUMPTABLE = {}
 RST_INLINE_DATA = {}
