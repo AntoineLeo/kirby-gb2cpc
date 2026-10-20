@@ -2,3 +2,11 @@ __pycache__/
 *.pyc
 build/
 test.bin
+
+# Jamais de ROM ni de donnees derivees du jeu dans le depot public
+re/game.gb
+re/game.gb.ram
+re/ref/
+re/listing/
+re/traces/
+re/states/
