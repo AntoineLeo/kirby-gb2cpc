@@ -6,7 +6,7 @@
 - **Support Z80 CPC ecrit et verifie** (portage.md §10 etapes 2-3) : carte
   memoire retenue (portage.md §2), select_bank par config RAM, far_dispatch,
   gb_tick, entrees natives. **`gb_cmp.py port level1_loop` : 0 ecart sur 600
-  tours (en cours ; 20 premiers verifies)** — la logique tourne dans le binaire CPC, identique au GB.
+  tours** — la logique tourne dans le binaire CPC, identique au GB.
 - **Logique niveau 1 prouvee identique** : `check.ps1 rapide` vert, et
   **0 trames differentes sur 599** (trace level1_loop, 600 tours, entrees
   scriptees) — la logique traduite calcule exactement comme le GB.

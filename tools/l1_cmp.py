@@ -87,11 +87,13 @@ amap = gb_cmp.addr_map(meta)
 regs = sim.registers
 mism = 0
 first = []
+pairs = [(a, i) for i, a in enumerate(amap) if not (0xBFF0 <= a < 0xBFF6)]
+idx_of = {a: i for i, a in enumerate(amap)}
+cpairs = [(a, idx_of[a]) for a in compare]
 for i in range(1, min(len(ref), int(os.environ.get('FRAMES', '60')))):
     before, after = ref[i - 1], ref[i]
-    for a in amap:
-        if not (0xBFF0 <= a < 0xBFF6):        # tout, sauf les marqueurs de tour
-            mem[a] = int(before[amap.index(a)])
+    for a, k in pairs:
+        mem[a] = int(before[k])
     mem[0x4000:0x8000] = win_image(mem[0xFFA4] & 0x1F)
     rr = meta['registers'][i - 1]
     for idx, val in enumerate(rr[:6]):
@@ -107,13 +109,13 @@ for i in range(1, min(len(ref), int(os.environ.get('FRAMES', '60')))):
     if regs[PC] != start:
         stack = [f'{mem[a] | (mem[a + 1] << 8):04X}' for a in range(0xDFC0, 0xDFE8, 2)]
         print(f'  ARRET tour {i} : PC {regs[PC]:04X} SP {regs[SP]:04X} trace {run} pile {stack} cible {mem[0xBFF4] | (mem[0xBFF5] << 8):04X}')
-    got = [mem[a] for a in compare]
-    want = [int(after[amap.index(a)]) for a in compare]
-    diff = [a for a, va, vb in zip(compare, want, got) if va != vb]
+    got = [mem[a] for a, _ in cpairs]
+    want = [int(after[k]) for _, k in cpairs]
+    diff = [a for (a, _), va, vb in zip(cpairs, want, got) if va != vb]
     if diff:
         mism += 1
         if len(first) < 8:
-            first.append((i, [(f'{a:04X}', f'{after[amap.index(a)]:02X}', f'{mem[a]:02X}')
+            first.append((i, [(f'{a:04X}', f'{after[idx_of[a]]:02X}', f'{mem[a]:02X}')
                              for a in diff[:12]]))
     if i <= 5 or i % 10 == 0:
         print(f'trame {i}: {len(diff)} octets differents, m {mem[0xBFF0]:02x}/{mem[0xBFF1]:02x}/{mem[0xBFF2]:02x} vb {mem[0xBFF3]:02x}/{mem[0xBFF4]:02x}')

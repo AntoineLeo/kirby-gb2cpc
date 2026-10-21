@@ -349,18 +349,21 @@ def port_compare(name, frames=None):
     compared = mismatched = skipped = 0
     first = []
     zmem = sim.memory
+    pairs = list(zip(amap, range(len(amap))))   # (adresse, index) precalcules
+    idx_of = {a: k for a, k in pairs}
+    cpairs = [(a, idx_of[a]) for a in compare if a in idx_of]
     for i in range(1, n):
         before, after = ref[i - 1], ref[i]
         if not getattr(cfg, 'gb_logic_ran', lambda a, b: True)(dict(zip(amap, before)),
                                                              dict(zip(amap, after))):
             skipped += 1
             continue
-        changed = any(before[amap.index(a)] != after[amap.index(a)] for a in compare)
+        changed = any(before[k] != after[k] for _, k in cpairs)
         if not changed:
             skipped += 1
             continue
-        for a in amap:
-            zmem[a] = int(before[amap.index(a)])
+        for a, k in pairs:
+            zmem[a] = int(before[k])
         zmem[0x4000:0x8000] = images.get(int(zmem[0xFFA4]), zmem[0x4000:0x8000])
         rr = meta['registers'][i - 1]
         for idx, val in enumerate(rr[:6]):
@@ -371,16 +374,14 @@ def port_compare(name, frames=None):
         zmem[stack + 1] = ret >> 8
         sim.registers[12] = stack
         sim.run(tick, ret, interrupts=False)
-        got = [zmem[a] for a in compare]
-        want = [int(after[amap.index(a)]) for a in compare]
-        diff = [a for a, va, vb in zip(compare, want, got)
-                if (va ^ vb) & mask.get(a, 0xFF)]
+        diff = [(a, int(after[k]), zmem[a]) for a, k in cpairs
+                if (int(after[k]) ^ zmem[a]) & mask.get(a, 0xFF)]
         compared += 1
         if diff:
             mismatched += 1
             if len(first) < 8:
-                first.append((i, [(f'{a:04X}', f'{after[amap.index(a)]:02X}',
-                                  f'{zmem[a]:02X}') for a in diff[:10]]))
+                first.append((i, [(f'{a:04X}', f'{w:02X}', f'{g:02X}')
+                                  for a, w, g in diff[:10]]))
     print(f'{name} : port {compared} pas compares, {mismatched} differents '
           f'({skipped} trames sans pas de logique ignorees)')
     for i, d in first:

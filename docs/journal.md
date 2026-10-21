@@ -325,7 +325,7 @@ Tailles mesurees : banque 0 = 10 047 o, b07 = 2 767 o, b1e/b0f/b1f/b1a = 1 429 o
   BANK_ENTRIES) recopie de _cfg_l1.py ; sortie en deux segments (game.bin
   $0200-$3FFF, game_banks.bin $F6C0-$FDFF).
 - tools/gb_cmp.py port : charge les deux segments + un traceur de fenetre
-  (config RAM -> page etendue). **0 ecart** sur les tours verifies (20 premiers ; 600 en cours) (trace level1_loop =
+  (config RAM -> page etendue). **0 ecart sur 600 tours** (trace level1_loop =
   le meme pas que gb_tick). check.sh rapide toujours vert.
 
 ### Pieges (en plus des precedents)
