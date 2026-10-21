@@ -254,3 +254,51 @@ script, le harnais continue de 3 octets).
 - gb_anchor_only.py / gb_slots.py (temp) : etat GB aux entrees de routine —
   attention, les hooks PyBoy modifient la ROM : comparer avec la trace (l1_loop)
   qui fait foi, pas avec un rejoue piege.
+
+
+## Phase 2 — cause racine des ecarts de trames d'evenement (2026-10-21)
+
+### Cause racine : capture de trace decalee (artefact de mesure, pas de logique)
+Les "ecarts des trames d'evenement" (compteurs CE56-CE58 "recharges a 09",
+pointeurs CE77-CE79 "+3 octets") etaient des ARTEFACTS. `gb_record_at.py`
+capturait memoire et registres via un generateur paresseux, evalue a la fin du
+tick PyBoy et non au PC d'ancrage : les snapshots tombaient en plein milieu du
+traitement d'entite. Preuve : les PC de capture de l'ancienne trace (2F4B,
+2CF3, 2FBF, 2C5F, 2F3E, 2C04...) au lieu de 3396 ; l'etat "en vol" de la
+trame 4 (slot 7 traite, 6/5/4 pas encore) explique exactement les valeurs
+0A/01/01/09 lues et le +3 du pointeur (stocke une trame plus tard).
+Correction : capture immediate dans le hook (memoire + registres), trace
+level1_loop re-enregistree (600 trames, tous les PC = 3396). Trame 4 :
+29 octets d'ecart -> 0.
+
+### Vrai ecart : table ROM $3098 non servie
+Restait CE12/CE3A (2 octets, trames 5/8/14/17). CE12 n'est qu'une copie de
+CE3A (bloc source $CE38+2 de la copie d'entites B1E_43xx) ; CE3A etait ecrit
+par G_3085 (ld [hl],e ; $3095) avec la table ROM $3098-$309B (00 60 40 20),
+index e>>2. Le banc servait $29C9, $2BF0, $30C7-$30FF mais pas $3098 :
+la lecture tombait sur les octets d'instruction deplaces (21 E3 = ld hl,$DEE3
+assemble en $3098) — les valeurs E3/21 ecrites sont exactement ces octets.
+Correction : DATA_PTRS += 0x3098, DATA_BLOCKS += (0x3098, 0x309C, 'db') ;
+le traducteur emet desormais `ld hl,D_3098` + le bloc aligne. 0 ecart sur 19.
+
+### Methode retenue pour la suite
+- L'outil de comparaison donne seul le diagnostic ; un ecart peut venir de
+  l'outil lui-meme — verifier d'abord la coherence de la mesure (PC de capture,
+  phase de snapshot) avant de suspecter la logique.
+- Les lectures de donnees ROM doivent passer par DATA_PTRS/DATA_BLOCKS (le
+  traducteur symbolise les d16 connus) ; un oubli se detecte aux valeurs
+  ecrites = octets d'instruction. Balayage des litteraux bruts fait (cf.
+  ATTENTION du traducteur) : la plupart sont compteurs ou paires x/y ; le
+  reste se detecte scenario par scenario par l1_cmp.
+
+
+### Suite : plafond T-states de sim.trace (deuxieme artefact, meme famille)
+La comparaison 600 tours s'arretait des la trame 153 (PC 0D57, puis 0200) :
+le 4e argument de `sim.trace` est un plafond ABSOLU du registre T (temps
+cumule), et T s'accumule d'une trame a l'autre dans le simulateur. Vers
+2 000 000 T-states (trame 153), chaque appel suivant s'arrete immediatement.
+Correction : `regs[25] = 0` (T) avant chaque trame dans tools/l1_cmp.py, comme
+`regs[26] = 0` (IFF). Principe general : un outil de comparaison trame par
+trame doit remettre a zero TOUT etat interne du simulateur qui n'est pas dans
+la memoire injectee (T, IFF, HALT...), sinon les arrets ressemblent a des
+ecarts de logique.

@@ -1,7 +1,7 @@
 #!/bin/sh
 # Controle unique du projet.
-#   sh check.sh rapide    construction + comparaison logique niveau 1 (600 tours)
-#   sh check.sh complet   idem + tous les scenarios + frontiere + etats
+#   sh check.sh rapide    construction + comparaison logique niveau 1 (trames 1-59)
+#   sh check.sh complet   idem + 600 tours + tous les scenarios + frontiere + etats
 # S'arrete a la premiere erreur et rend un code d'echec.
 set -e
 cd "$(dirname "$0")"
@@ -24,15 +24,15 @@ echo "-- traduction multi-banques"
 $PY -X utf8 tools/gb2z80.py
 
 echo "-- banc d'essai niveau 1"
+cp src/l1_test.asm build/l1/test.asm
 sjasmplus --nologo --msg=war --sym=build/l1/test.sym build/l1/test.asm
 
-echo "-- comparaison logique niveau 1 (600 tours)"
-if $PY -X utf8 tools/l1_cmp.py 2>&1 | tee /tmp/l1_cmp.log | grep -qE "^0 trames differentes sur"; then
-    echo "   OK : 0 trames differentes"
-else
+echo "-- comparaison logique niveau 1 (trames 1-59)"
+FRAMES=60 $PY -X utf8 tools/l1_cmp.py 2>&1 | tee /tmp/l1_cmp.log | grep -qE "^0 trames differentes sur" || {
     echo "   ECART niveau 1 (detail dans /tmp/l1_cmp.log)"
     exit 1
-fi
+}
+echo "   OK : 0 trames differentes"
 
 echo "-- traces (comparaison GB contre GB)"
 $PY -X utf8 tools/gb_cmp.py self boot
@@ -41,6 +41,12 @@ $PY -X utf8 tools/gb_cmp.py self level1
 $PY -X utf8 tools/gb_cmp.py selftest level1
 if [ "$MODE" = complet ]; then
     $PY -X utf8 tools/gb_cmp.py self level1_actions
+    echo "-- comparaison logique niveau 1 (600 tours)"
+    FRAMES=600 $PY -X utf8 tools/l1_cmp.py 2>&1 | tee /tmp/l1_cmp.log | grep -qE "^0 trames differentes sur" || {
+        echo "   ECART niveau 1 (detail dans /tmp/l1_cmp.log)"
+        exit 1
+    }
+    echo "   OK : 0 trames differentes sur 600"
     echo "-- frontiere"
     $PY -X utf8 tools/gb_boundary.py
     echo "-- carte code/donnees"

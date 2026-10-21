@@ -100,7 +100,8 @@ for i in range(1, min(len(ref), int(os.environ.get('FRAMES', '60')))):
     regs[7] = (rr[6] >> 8) & 0xFF
     regs[SP] = rr[7]
     regs[PC] = start
-    regs[26] = 0
+    regs[25] = 0                      # T cumule entre les appels : le plafond
+    regs[26] = 0                      # de sim.trace est absolu, on le remet a 0
     run = sim.trace(start, start, 0, 2000000, False, None, None, None, None, None)
     if i <= 3: print('  fin PC', hex(regs[PC]), 'SP', hex(regs[SP]), 'trace', run)
     if regs[PC] != start:

@@ -60,7 +60,13 @@ def main():
     pending = []
 
     def hook(ctx):
-        pending.append((bytes(pb.memory[lo:hi]) for lo, hi in regions))
+        # Capture immediate : un generateur paresseux ici lirait la memoire a la
+        # fin du tick PyBoy (phase aleatoire dans la boucle d'entites), pas au
+        # PC d'ancrage — la comparaison tour par tour devient alors fausse.
+        block = b''.join(bytes(pb.memory[lo:hi]) for lo, hi in regions)
+        r = pb.register_file
+        pending.append((block, [r.A, r.F, r.B, r.C, r.D, r.E,
+                                r.HL, r.SP, r.PC]))
 
     pc = int(args.pc, 16)
     pb.hook_register(args.bank, pc, hook, ('at', args.bank, pc))
@@ -75,13 +81,11 @@ def main():
         pb.tick(render=False)
         f += 1
         if pending:
-            block = pending[-1]
+            block, rr = pending[-1]
             pending.clear()
-            frames_mem.append(b''.join(block))
-            r = pb.register_file
-            regs.append([r.A, r.F, r.B, r.C, r.D, r.E,
-                         r.HL, r.SP, r.PC])
-            pcs.append(r.PC)
+            frames_mem.append(block)
+            regs.append(rr)
+            pcs.append(rr[8])
     pb.stop(save=False)
     n = len(frames_mem)
     if n == 0:
