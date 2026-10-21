@@ -3,6 +3,10 @@
 ## 1. Etat
 
 - Preparation complete (docs/journal.md, docs/frontiere.md, docs/memoire.md).
+- **Support Z80 CPC ecrit et verifie** (portage.md §10 etapes 2-3) : carte
+  memoire retenue (portage.md §2), select_bank par config RAM, far_dispatch,
+  gb_tick, entrees natives. **`gb_cmp.py port level1_loop` : 0 ecart sur 600
+  tours (en cours ; 20 premiers verifies)** — la logique tourne dans le binaire CPC, identique au GB.
 - **Logique niveau 1 prouvee identique** : `check.ps1 rapide` vert, et
   **0 trames differentes sur 599** (trace level1_loop, 600 tours, entrees
   scriptees) — la logique traduite calcule exactement comme le GB.
@@ -33,15 +37,14 @@
 
 ## 3. Prochaine action exacte
 
-Etape 2 de docs/portage.md §10 — support Z80 CPC :
-1. carte memoire §2 dans src/ : GB RAM en $8000, HRAM/OAM en $A000, fenetre de
-   donnees de banque en $A300, pages commutées en $C000-$FFFF (banques
-   07/0F/1E/1F du niveau 1), code traduit en $0200-$3FFF ;
-2. `gb_tick` + cadence (6 pas de logique / 5 trames CPC, motif 2,1,1,1,1) ;
-3. entrees natives produisant FFA5-FFAC (meme structure que UpdatePadState) ;
-puis etape 4 : moteur d'affichage (decor, HUD, sprites — reprendre
-atlas/decalage/restauration du rendu sprite), et verification Caprice32
-(capture `tools/cpcshot.sh`, une fenetre a la fois).
+Etape 4 de docs/portage.md §10 — moteur d'affichage :
+1. images de fenetre par banque (donnees + tramplins) placees dans les pages
+   etendues, chargees depuis la disquette (palier chargement : loader AMSDOS) ;
+2. decor (tuiles converties hors ligne, rendu incrémental), HUD, sprites
+   logiciels (reprendre atlas/decalage/restauration du rendu sprite), cale sur
+   le VSYNC lu au PPI ;
+3. verification Caprice32 (capture `tools/cpcshot.sh`, une fenetre a la fois),
+   puis son AY, menu/selection de fichier (etapes 5-6).
 
 ## 4. Pieges
 

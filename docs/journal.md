@@ -302,3 +302,42 @@ Correction : `regs[25] = 0` (T) avant chaque trame dans tools/l1_cmp.py, comme
 trame doit remettre a zero TOUT etat interne du simulateur qui n'est pas dans
 la memoire injectee (T, IFF, HALT...), sinon les arrets ressemblent a des
 ecarts de logique.
+
+
+## Phase 2 — support Z80 CPC et comparaison port (2026-10-21)
+
+### Carte memoire retenue (docs/portage.md §2, resolution des contradictions)
+La fenetre de banque ($4000-$7FFF) ne peut pas bouger : ses pointeurs sont
+calcules a l'execution (~1600 litteraux 16 bits). Elle monte donc une page
+etendue par banque GB (configs RAM 4-7 : $4000-$7FFF commute, $C000-$FFFF reste
+sur la RAM principale). Toute la RAM GB reste a ses adresses natives
+(VRAM $8000, SRAM $A000, RAM $C000, OAM/I/O/HRAM $FE00) : la comparaison tour
+par tour reste directe. L'ecran mode 1 tient dans le trou d'echo $E000-$F6BF.
+Tailles mesurees : banque 0 = 10 047 o, b07 = 2 767 o, b1e/b0f/b1f/b1a = 1 429 o.
+
+### Support ecrit et verifie
+- src/defs.asm : la carte ; src/gb_support.asm : select_bank (config RAM $7Fxx,
+  table banke_cfg), far_dispatch + far0_pairs, gb_tick (le corps de la boucle
+  $3396 : G_0496, G_086B, select_bank(7), call $4259, G_04AE, gb_vblank =
+  DA0E++ + G_2BFD), read_input_native (bloc FFA5-FFA8, meme structure que
+  UpdatePadState $041E) ; src/main.asm : runner logique (cadence 2,1,1,1,1).
+- port_config.py : le savoir du niveau 1 (ROOTS, STUBS, DATA_*, PATCHES,
+  BANK_ENTRIES) recopie de _cfg_l1.py ; sortie en deux segments (game.bin
+  $0200-$3FFF, game_banks.bin $F6C0-$FDFF).
+- tools/gb_cmp.py port : charge les deux segments + un traceur de fenetre
+  (config RAM -> page etendue). **0 ecart** sur les tours verifies (20 premiers ; 600 en cours) (trace level1_loop =
+  le meme pas que gb_tick). check.sh rapide toujours vert.
+
+### Pieges (en plus des precedents)
+- CSimulator copie la memoire a la construction : le traceur doit ecrire dans
+  sim.memory. Le piege est deja au journal ; rencontré une deuxieme fois, le
+  symptome etait une fenetre jamais commutee (le saut de fenetre tombait sur
+  des donnees).
+- Le stub $0357 doit rester un `ret` : c'est read_input_native (boucle CPC)
+  qui ecrit le bloc d'entrees, pas le pas de logique. Une traduction generee
+  avec l'ancien STUBS laissait l'entree ecraser le bloc injecte : ~11 octets
+  d'ecart, le jeu traitant un pad parasite (meme code, meme memoire, seule la
+  generation differait — verifier qu'un fichier genere est a jour avant de
+  soupconner la logique).
+- gb_cmp.py port doit injecter les registres de la trace (meta['registers'])
+  comme l1_cmp, pas seulement la memoire.

@@ -252,8 +252,50 @@ def writer_candidates(addrs, side):
     return out
 
 
+class WinTracer:
+    """Fenetre de banque $4000-$7FFF : la config RAM CPC monte une page etendue."""
+    border = 7
+    t_start = None
+    colour_spans = {}
+    prof_ignore = 4
+
+    def __init__(self, mem, images, windows):
+        self.mem = mem
+        self.images = images
+        self.windows = windows
+
+    def read_port(self, r, p):
+        return 0xFF
+
+    def write_port(self, r, p, v, offset=0):
+        bank = self.windows.get(v & 0x0F)
+        if bank is not None:
+            self.mem[0x4000:0x8000] = self.images.get(bank, self.mem[0x4000:0x8000])
+
+
+def port_win_images(cfg, sym_text):
+    """Images de fenetre par banque GB : octets ROM + tramplins aux entrees."""
+    rom = open(os.path.join(ROOT, cfg.ROM), 'rb').read()
+    with open(os.path.join(ROOT, 'gb', 'win_entries.json'), encoding='utf-8') as f:
+        ents = json.load(f)
+    images = {}
+    for bank in range(32):
+        img = bytearray(rom[bank * 0x4000:(bank + 1) * 0x4000])
+        for e in ents.get(f'{bank:02x}', []):
+            m = re.search(r'^B' + f'{bank:02X}_{e:04X}' +
+                          r':\s+EQU\s+0x([0-9A-Fa-f]+)', sym_text, re.M)
+            if m:
+                addr = int(m.group(1), 16)
+                off = e - 0x4000
+                img[off] = 0xC3
+                img[off + 1] = addr & 0xFF
+                img[off + 2] = addr >> 8
+        images[bank] = bytes(img)
+    return images
+
+
 def load_port_state():
-    """Charge build/game.bin dans un Z80 64 Ko et rend (sim, adresse gb_tick)."""
+    """Charge le portage dans un Z80 64 Ko et rend (sim, gb_tick, cfg, images)."""
     try:
         from skoolkit import CSimulator
     except ImportError:
@@ -271,6 +313,11 @@ def load_port_state():
     mem = bytearray(65536)
     load = int(getattr(cfg, 'LOAD_ADDR', 0x0200))
     mem[load:load + len(code)] = code
+    banksp = os.path.join(ROOT, getattr(cfg, 'BANKS_BIN', 'build/game_banks.bin'))
+    if os.path.exists(banksp):
+        code2 = open(banksp, 'rb').read()
+        l2 = int(getattr(cfg, 'BANKS_LOAD', 0xF6C0))
+        mem[l2:l2 + len(code2)] = code2
     sim = CSimulator(mem)
     sym = open(symp, encoding='utf-8', errors='replace').read()
     m = re.search(r'^' + re.escape(getattr(cfg, 'TICK_SYMBOL', 'gb_tick')) +
@@ -278,7 +325,12 @@ def load_port_state():
     if not m:
         raise SystemExit('symbole %s introuvable dans %s' %
                          (getattr(cfg, 'TICK_SYMBOL', 'gb_tick'), symp))
-    return sim, int(m.group(1), 16), cfg
+    images = port_win_images(cfg, sym)
+    # Attention : CSimulator copie la memoire a la construction ; le traceur
+    # doit ecrire dans sim.memory (le journal note deja ce piege).
+    sim.set_tracer(WinTracer(sim.memory, images,
+                             dict(getattr(cfg, 'PORT_WINDOWS', {}))))
+    return sim, int(m.group(1), 16), cfg, images
 
 
 def port_compare(name, frames=None):
@@ -287,7 +339,7 @@ def port_compare(name, frames=None):
     mem, meta, _ = load_trace(name)
     ref = mem_matrix(mem, meta)
     amap = addr_map(meta)
-    sim, tick, cfg = load_port_state()
+    sim, tick, cfg, images = load_port_state()
     regions = [tuple(r) for r in meta['regions']]
     compare = list(getattr(cfg, 'COMPARE', [])) or list(amap)
     mask = dict(getattr(cfg, 'MASK', {}))
@@ -309,6 +361,12 @@ def port_compare(name, frames=None):
             continue
         for a in amap:
             zmem[a] = int(before[amap.index(a)])
+        zmem[0x4000:0x8000] = images.get(int(zmem[0xFFA4]), zmem[0x4000:0x8000])
+        rr = meta['registers'][i - 1]
+        for idx, val in enumerate(rr[:6]):
+            sim.registers[idx] = val
+        sim.registers[6] = rr[6] & 0xFF
+        sim.registers[7] = (rr[6] >> 8) & 0xFF
         zmem[stack] = ret & 0xFF
         zmem[stack + 1] = ret >> 8
         sim.registers[12] = stack

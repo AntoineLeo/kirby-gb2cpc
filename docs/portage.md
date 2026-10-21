@@ -21,35 +21,48 @@ un. La première tranche a mesuré que le niveau 1 n'utilise que 5 banques
 depuis la banque 0 fixe ; les banques commutées sont des feuilles appelées
 depuis la banque 0.
 
-## 2. Mémoire (CPC 6128, 128 Ko)
+## 2. Mémoire (CPC 6128, 128 Ko) — carte retenue
 
-Le CPC ne peut voir que 64 Ko à la fois ; les 64 Ko supplémentaires sont une
-page de 16 Ko commutable en `$C000-$FFFF` (4 pages).
+Le CPC ne voit que 64 Ko à la fois ; les 64 Ko supplémentaires sont 4 pages
+de 16 Ko commutables. La logique GB doit trouver ses données aux adresses
+calculées : la fenêtre de banque ($4000-$7FFF, ~1600 littéraux + pointeurs
+bruts) et la RAM GB (hauts d'octets littéraux $A0/$C4-$DE/$FF) restent donc à
+leurs adresses GB d'origine. Les configurations RAM 4 à 7 du CPC montent une
+page étendue en $4000-$7FFF en laissant $C000-$FFFF sur la RAM principale.
 
-| Zone | Adresse | Contenu |
+| Zone | Adresse CPC | Contenu |
 |---|---|---|
 | vecteurs, pile moteur | `$0000-$01FF` | IM 1, `jp isr` en `$0038`, pile |
-| moteur + banque 0 traduite | `$0200-$3FFF` | code Z80, table de sauts de script |
-| écran | `$4000-$56BF` | mode 1, 160×144 (5 760 octets, R4=20, R6=18) |
-| libre / données de niveau | `$56C0-$7FFF` | marge, données compactées |
-| RAM GB native | `$8000-$9FFF` | `C000-DFFF` (8 Ko) |
-| HRAM / OAM / I/O ombrés | `$A000-$A2FF` | `FE00`, `FF00-FFFF` |
-| fenêtre de données de banque | `$A300-$BFFF` | banque courante compactée (7 Ko) |
-| page commutée | `$C000-$FFFF` | code de la banque courante (4 pages de 16 Ko) |
-| RAM cartouche | disquette | sauvegardes, même format que l'original |
+| moteur + code traduit | `$0200-$3FFF` | support, banque 0 traduite, banques 07, table de sauts `$3F00-$3FFF` |
+| page commutée | `$4000-$7FFF` | fenêtre de banque (page étendue par banque GB : 07, 0F, 1E, 1F) |
+| VRAM GB | `$8000-$9FFF` | native — ombre tuiles/carte, lue par le moteur d'affichage |
+| SRAM GB | `$A000-$BFFF` | native — structures d'entités |
+| RAM GB | `$C000-$DFFF` | native — la comparaison tour par tour reste directe |
+| écran | `$E000-$F6BF` | mode 1, 160×144 (5 760 o, R4=20, R6=18), base CRTC `$C000` + décalage |
+| données moteur | `$F6C0-$FDFF` | banques 1E/0F/1F/1A traduites + buffers |
+| OAM / I/O / HRAM | `$FE00-$FFFF` | natifs (`FE00`, `FF00-FFFF`) |
+
+Pages étendues : 4 au total — trois pages de fenêtre (banques 07, 1E, et 0F/1F
+combinées) et une page moteur (code d'affichage + images de sprites décalées)
+montée en $4000-$7FFF pendant le rendu. Les banques hors niveau 1 (01, 02, 08,
+0B, 0E, 1A : ~3,8 Ko, non sollicitées par le profil) seront des overlays
+disquette dans la phase d'extension.
 
 Conséquences :
-- la RAM GB garde ses adresses `$C000-$DFFF` : la comparaison tour par tour reste
-  directe ;
-- l'écran compact de 5 760 octets laisse la place à une fenêtre de données de
-  7 Ko et à une page de code de 16 Ko ; le niveau 1 tient dans 4 pages pour ses
-  4 banques commutées (`07, 0F, 1E, 1F`) ;
-- les accès de la logique à `$4000-$7FFF` passent par la fenêtre de données ;
-  les gros blobs graphiques sont convertis hors ligne et exclus de la fenêtre ;
-- au-delà de 4 banques par scène, les modules sont chargés depuis la disquette
-  dans une page (overlay), sans changer le code traduit ;
-- la taille exacte du code traduit est mesurée après fermeture
-  (`gb_closure.py`) : 7 162 octets de code GB pour le niveau 1, ~15 Ko Z80.
+- tout le GB est à ses adresses natives : pas de `RAM_MAP`, la comparaison
+  tour par tour (`gb_cmp.py port`) injecte et relit aux adresses GB ;
+- les accès de la logique à `$4000-$7FFF` tombent juste : la fenêtre monte la
+  page étendue de la banque courante (commutation par OUT `$7Fxx`) ; les gros
+  blobs graphiques sont convertis hors ligne et exclus de la fenêtre ;
+- l'écran tient dans le trou d'écho `$E000-$FDFF` que la logique n'utilise pas
+  (vérifié sur 600 tours) ;
+- la taille du code traduit est mesurée après fermeture (`gb_closure.py`) :
+  banque 0 = 10 047 o, b07 = 2 767 o, b1e/b0f/b1f/b1a = 1 429 o.
+
+(Décision d'implémentation : la table d'origine de ce paragraphe plaçait
+l'écran en $4000 et la fenêtre en $A300 ; la fenêtre ne peut pas bouger — ses
+pointeurs sont calculés à l'exécution — et la RAM GB doit rester en $C000
+pour la comparaison. La carte ci-dessus résout les deux contradictions.)
 
 ## 3. Affichage
 

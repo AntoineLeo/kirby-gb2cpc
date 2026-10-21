@@ -10,3 +10,5 @@ re/ref/
 re/listing/
 re/traces/
 re/states/
+gb/gb_logic*.asm
+gb/win_entries.json
